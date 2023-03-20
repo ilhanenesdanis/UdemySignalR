@@ -1,0 +1,112 @@
+﻿@{
+    ViewData["Title"] = "Home Page";
+}
+
+@section Scripts{
+
+    <script src="~/lib/microsoft/signalr/dist/browser/signalr.min.js"></script>
+
+
+    <script type="text/javascript">
+        //Connection Oluşturmak için aşağıdaki kod blogunu kullanıyoruz
+        //.configureLogging(signalR.LogLevel.Debug) console kısımda logları göstermek için kullanılır
+        //bağlantı koptuktan sonra aralıklar ile bağlanmayı deneyen signalR fonksiyonu withAutomaticReconnect()
+        //bu kullanım ise kaç saniyede tekrar deneneceğini düzenler .withAutomaticReconnect([1000,1000,1000,1000])
+        $(document).ready(() => {
+            //Connection Metotları
+            var connection = new signalR.HubConnectionBuilder().configureLogging(signalR.LogLevel.Debug).withAutomaticReconnect().withUrl("https://localhost:7117/MyHub").build();
+            //Functions
+            function statusShow(){
+                $('#ConStatus').text(connection.state);
+            }
+            function Start(){
+                connection.start().then(() => {
+                  $('#loading').hide();
+                  statusShow();
+                }).catch((err) => { 
+                 console.log(err);
+                 setTimeout(()=>Start(),2000);//2sn aralıklar ile start fonksiyonu çalışır bu    
+                });
+            }
+
+            statusShow();
+            Start();
+
+            //bağlantı koptuktna sonra çalışan fonkisyon
+            connection.onreconnecting(err=>{
+                $('#loading').show();
+               statusShow();
+            });
+            //her başarılı bağlantı içinde geriye bir connectionId döner ve ondan sonraki işlemler o connectionId üzerinden ilerler
+            connection.onreconnected(connectionId=>{
+                 statusShow();
+                 $('#loading').hide();
+                 console.log(connectionId);//bağlantı oluştuktna sonraki connectionId bilgisini console ekranına yazar
+            });
+
+            //bağlantı kapandıktan sonra çalışna fonksiyon
+            connection.onclose(()=>{
+                 $('#loading').hide();
+                 statusShow();
+                 Start();
+            })
+
+
+
+            //Bağlantı durumunu gösterir
+            statusShow();
+
+            //Clicks
+            $('#btnNameSave').click(() => {
+                connection.invoke("SendName", $('#TxtName').val()).catch((err) => console.log(err));
+            });
+
+            //On Metotları 
+            connection.on("ReceiveName", (name) => {
+                $('#namesList').append(`<li class="list-group-item">${name}</li>`)
+            });
+
+            connection.on("ReceiveClientCount",(ClientCount)=>{
+                $('#ClientCount').text(ClientCount);
+            });
+
+            connection.on("Notify",(countText)=>{
+                $('#notify').html(`<div class="alert alert-success">${countText}</div>`);
+            });
+
+            connection.on("Error",(errorText)=>{
+                alert(errorText);
+            })
+        })
+    </script>
+
+}
+
+
+    <div class="row">
+        <div class="col-md-8 offset-2">
+            <input class="form-control" type="text" id="TxtName" />
+            <hr />
+            <button class="btn btn-info my-2" id="btnNameSave">İsim Kaydet</button>
+            <div class="alert alert-info">
+                <div class="row">
+                     <div class="col-md-8">
+                       Bağlantı Durumu: <strong id="ConStatus"></strong>, Kullanıcı Sayısı: <strong id="ClientCount"></strong>
+                    </div>
+                    <div class="col-md-4 text-end">
+                    <div id="loading" class="spinner-border text-danger" role="status">
+                       <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+                </div>
+            </div>
+            <div id="notify">
+
+            </div>
+            <div class="col-md-8 offset-2">
+                <ul class="list-group" id="namesList">
+
+                </ul>
+            </div>
+        </div>
+    </div>
